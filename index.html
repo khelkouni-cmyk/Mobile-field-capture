@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect Site Package</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+<style>
+body{font-family:Arial;background:#f2f2f2;padding:10px;margin:0;}
+.container{background:white;padding:15px;border-radius:10px;max-width:500px;margin:auto;box-shadow:0 0 8px rgba(0,0,0,0.2);}
+h2{text-align:center;}
+label{font-weight:bold;display:block;margin-top:10px;}
+input,select{width:100%;padding:12px;margin-top:5px;font-size:16px;border-radius:6px;border:1px solid #ccc;}
+button{width:100%;padding:14px;margin-top:15px;font-size:16px;border:none;border-radius:8px;background:#007bff;color:white;}
+button:active{background:#0056b3;}
+.checklist{margin-top:10px;}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<h2>Connect Site Package</h2>
+
+<label>Site ID</label>
+<input type="text" id="site">
+
+<div class="checklist" id="checklist">
+  <label><input type="radio" name="siteType" value="ID"> ID</label>
+  <label><input type="radio" name="siteType" value="OD"> OD</label>
+</div>
+
+<button onclick="takePhoto()">📷 Take Photo</button>
+<button onclick="recordVideo()">🎥 Record Video</button>
+<button onclick="exportPackage()">Export Site Package</button>
+
+<input type="file" id="photo" accept="image/*" capture="environment" multiple style="display:none;">
+<input type="file" id="video" accept="video/*" capture="environment" multiple style="display:none;">
+
+</div>
+
+<script>
+let photosArray = {ID: [], OD: []};
+let videosArray = {ID: [], OD: []};
+let photoCounter = {ID:1, OD:1};
+let videoCounter = {ID:1, OD:1};
+
+// Trigger file inputs
+function takePhoto(){ 
+  if(!getSelectedType()){ alert("Select ID or OD first"); return; }
+  document.getElementById("photo").click(); 
+}
+function recordVideo(){ 
+  if(!getSelectedType()){ alert("Select ID or OD first"); return; }
+  document.getElementById("video").click(); 
+}
+
+// Get selected type
+function getSelectedType(){
+  let selected = document.querySelector('input[name="siteType"]:checked');
+  return selected ? selected.value : null;
+}
+
+// Store selected photos
+document.getElementById("photo").addEventListener("change", function(){
+  let type = getSelectedType();
+  if(!type) return;
+  for(let i=0;i<this.files.length;i++) photosArray[type].push(this.files[i]);
+});
+
+// Store selected videos
+document.getElementById("video").addEventListener("change", function(){
+  let type = getSelectedType();
+  if(!type) return;
+  for(let i=0;i<this.files.length;i++) videosArray[type].push(this.files[i]);
+});
+
+async function exportPackage(){
+  let site = document.getElementById("site").value;
+  if(!site){alert("Enter Site ID"); return;}
+
+  let zip = new JSZip();
+  let siteFolder = zip.folder(site); // main folder inside ZIP
+
+  ["ID","OD"].forEach(type=>{
+    let photoFolder = siteFolder.folder(type);
+    let videoFolder = siteFolder.folder(type+"/videos");
+
+    photosArray[type].forEach(file=>{
+      let newName = `${type}_photo${photoCounter[type]}.jpg`;
+      photoFolder.file(newName, file);
+      photoCounter[type]++;
+    });
+
+    videosArray[type].forEach(file=>{
+      let newName = `${type}_video${videoCounter[type]}.mp4`;
+      videoFolder.file(newName, file);
+      videoCounter[type]++;
+    });
+  });
+
+  // Report
+  let report = "Site ID: "+site+"\n\n";
+  ["ID","OD"].forEach(type=>{
+    report += type+":\n";
+    report += "Photos:\n";
+    for(let i=1;i<photoCounter[type];i++) report += `${type}_photo${i}.jpg\n`;
+    report += "Videos:\n";
+    for(let i=1;i<videoCounter[type];i++) report += `${type}_video${i}.mp4\n`;
+    report += "\n";
+  });
+  siteFolder.file("report.txt", report);
+
+  let content = await zip.generateAsync({type:"blob"});
+  let a = document.createElement("a");
+  a.href = URL.createObjectURL(content);
+  a.download = site+"_package.zip"; // automatic ZIP name
+  a.click();
+}
+</script>
+
+</body>
+</html>
